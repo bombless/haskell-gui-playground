@@ -29,12 +29,13 @@ appLoop renderer font = do
   rendererDrawColor renderer $= V4 0 0 255 255
   clear renderer
   rendererDrawColor renderer $= V4 255 0 0 255
-  let rect = Rectangle (P (V2 50 50)) (V2 300 200)
-  fillRectF renderer rect
+  let rectFill = Rectangle (P (V2 50 50)) (V2 300 200)
+  fillRectF renderer rectFill
   let fontColor = V4 0 255 0 255
   surface <- solid font fontColor "hello"
+  (V2 intWidth intHeight) <- surfaceDimensions surface
   texture <- createTextureFromSurface renderer surface
-  let rect = Rectangle (P (V2 50 50)) (V2 300 100)
-  copy renderer texture Nothing $ Just rect
+  let rectText = Rectangle (P (V2 50 50)) (V2 (div intWidth 8) (div intHeight 8))
+  copy renderer texture Nothing $ Just rectText
   present renderer
   unless qPressed (appLoop renderer font)
