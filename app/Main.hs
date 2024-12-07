@@ -32,7 +32,8 @@ appLoop firstTime renderer font = do
   clear renderer
   rendererDrawColor renderer $= V4 255 0 0 255
   let fontColor = V4 0 255 0 255
-  let drawText = solid font fontColor
+  let fontBGColor = V4 0 127 255 127
+  let drawText = shaded font fontColor fontBGColor
   drawTree firstTime drawText renderer
   present renderer
   unless quitTriggered (appLoop False renderer font)

@@ -26,10 +26,12 @@ getPaddingTree :: Tree a -> Int -> Bool -> Bool -> Tree (Int, a)
 getPaddingTree t depth isLeft isLeftmost = case t of
     Leaf -> Leaf
     Node v l r ->
-        let padding = if isLeftmost
-            then leftmostSpaceOfDepth depth
-            else if isLeft && depth == 1 then 1 else normalSpaceOfDepth depth in
-        Node (padding, v) (getPaddingTree l (depth - 1) True isLeftmost) (getPaddingTree r (depth-1) False False)
+        Node (padding, v) (getPaddingTree l (depth - 1) True isLeftmost) (getPaddingTree r (depth-1) False False) where
+            padding
+                | isLeftmost = leftmostSpaceOfDepth depth
+                | isLeft && depth == 1 = 1
+                | otherwise = normalSpaceOfDepth depth
+
 
 isVisualLeaf :: Tree (Int, Maybe a) -> Bool
 isVisualLeaf Leaf = True
@@ -95,7 +97,7 @@ getLines :: Tree a -> [[(Int, Element a)]]
 getLines t =
     let depth = getDepth t in
     let lists = listOfNodes [getPaddingTree (asFullTree t depth) depth True True] depth in
-    concat $ map linesOfNodes lists
+    concatMap linesOfNodes lists
 
 class Printable a where
     printNode :: a -> IO ()
@@ -104,7 +106,7 @@ instance Printable Char where
     printNode a = putChar '|' >> putChar a >> putChar '|'
 
 instance Printable Int where
-    printNode a = printf "%03d" a
+    printNode = printf "%03d"
 
 printLine :: (Printable a) => [(Int, Element a)] -> IO ()
 printLine [] = putChar '\n'
@@ -120,36 +122,64 @@ printLine ((n, VisibleRight):t) = do
     putStr $ replicate n ' '
     putChar '\\'
     printLine t
+printLine ((n, VirtualNode):t) = do
+    putStr $ replicate (n + 3) ' '
+    printLine t
 printLine ((n, _):t) = do
     putStr $ replicate (n + 1) ' '
     printLine t
 
 printHelper :: (Printable a) => [[(Int, Element a)]] -> IO ()
-printHelper [] = return ()
-printHelper (h:t) = printLine h >> printHelper t
+printHelper = foldr ((>>) . printLine) (return ())
 
 printTree :: (Printable a) => Tree a -> IO ()
 printTree = printHelper . getLines
 
-drawNodes :: Bool -> [[(Int, Element Int)]] -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> Renderer -> IO ()
-drawNodes _ [] _ _ _ _ _ = return ()
-drawNodes firstTime ([]:t) _ y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime t 0 (y + unitHeight) (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) x y (unitWidth, unitHeight) drawText renderer = do
-    surface <- drawText $ pack $ printf "%03d" content
+class Insertable a where
+    insert :: a -> Tree a -> Tree a
+
+instance Insertable Char where
+    insert v Leaf = Node v Leaf Leaf
+    insert v (Node root left right)
+        | v == root = Node root left right
+        | v < root = Node root (insert v left) right
+        | otherwise = Node root left (insert v right)
+
+class ToText a where
+    to_text :: a -> Text
+
+instance ToText Int where
+    to_text x = pack $ printf "%03d" x
+
+instance ToText Char where
+    to_text x = pack $ printf "%c" x
+
+drawNodes :: (ToText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> Renderer -> IO ()
+drawNodes _ [] _ _ _ _ _ _ = return ()
+drawNodes firstTime ([]:t) initialX _ y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime t initialX initialX (y + unitHeight) (unitWidth, unitHeight) drawText renderer
+drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
+    -- fillRect renderer $ Just $ Rectangle (P (V2 (fromIntegral $ x + n * unitWidth) (fromIntegral y))) (V2 (3 * fromIntegral unitWidth) (fromIntegral unitHeight))
+    surface <- drawText $ to_text content
     texture <- createTextureFromSurface renderer surface
+    freeSurface surface
     dims <- surfaceDimensions surface
+    when firstTime $ putStr "dims:" >> putStr (show dims) >> putChar '\n'
+    let V2 textWidth _ = dims
+    let offsetX = div (fromIntegral (3 * unitWidth) - fromIntegral textWidth) 2
     let cX = fromIntegral $ x + n * unitWidth
     let cY = fromIntegral y
-    let rectText = Rectangle (P (V2 cX cY)) dims
+    let rectText = Rectangle (P (V2 (cX + offsetX) cY)) dims
     copy renderer texture Nothing $ Just rectText
-    drawNodes firstTime (t:otherLines) (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleLeft):t):otherLines) x y (unitWidth, unitHeight) drawText renderer = do
+    destroyTexture texture
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth * 3) y (unitWidth, unitHeight) drawText renderer
+drawNodes firstTime (((n, VisibleLeft):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
     let p1x = fromIntegral $ n * unitWidth + x + unitWidth
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x
     let p2y = fromIntegral $ y + unitHeight
-    if firstTime then do
-        putStr "(x, y) = "
+    when firstTime
+        $ do
+        putStr "#VisibleLeft# (x, y) = "
         putStr $ show (x, y)
         putStr ": "
         putStr "point "
@@ -157,33 +187,31 @@ drawNodes firstTime (((n, VisibleLeft):t):otherLines) x y (unitWidth, unitHeight
         putStr " to "
         putStr $ show (p2x, p2y)
         putChar '\n'
-    else
-        return ()
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
-    drawNodes firstTime (t:otherLines) (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleRight):t):otherLines) x y (unitWidth, unitHeight) drawText renderer = do
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
+drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
     let p1x = fromIntegral $ n * unitWidth + x
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x + unitWidth
     let p2y = fromIntegral $ y + unitHeight
-    if firstTime then do
-        print "point "
-        print (p1x, p1y)
+    when firstTime
+        $ do
+        putStr "#VisibleRight# (x, y) = "
+        putStr $ show (x, y)
+        putStr ": "
+        putStr "point "
+        putStr $ show (p1x, p1y)
         putStr " to "
-        print (p2x, p2y)
+        putStr $ show (p2x, p2y)
         putChar '\n'
-    else
-        return ()
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
-    drawNodes firstTime (t:otherLines) (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, _):t):otherLines) x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
+drawNodes firstTime (((n, VirtualNode):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + 3 * unitWidth) y (unitWidth, unitHeight) drawText renderer
+drawNodes firstTime (((n, _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
 
 drawTree :: Bool -> (Text -> IO Surface) -> Renderer -> IO ()
 drawTree firstTime drawText renderer = do
-    let demo = Node 2 (Node 1 Leaf Leaf) Leaf
+    -- let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
+    let demo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf
     when firstTime $ printTree demo
-    drawNodes firstTime (getLines demo) 0 0 (32, 32) drawText renderer
-    -- surface <- drawText $ pack $ printf "Hello, world!"
-    -- texture <- createTextureFromSurface renderer surface
-    -- let rect = Just $ Rectangle (P (V2 0 96)) (V2 30 192)
-    -- copy renderer texture rect Nothing
+    drawNodes firstTime (getLines demo) 100 100 100 (16, 16) drawText renderer
