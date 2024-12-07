@@ -28,12 +28,11 @@ appLoop firstTime renderer font = do
             keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
           _ -> False
       quitTriggered = any eventIsQuit events
-  rendererDrawColor renderer $= V4 0 0 255 255
+  rendererDrawColor renderer $= V4 173 216 230 255
   clear renderer
-  rendererDrawColor renderer $= V4 255 0 0 255
-  let fontColor = V4 0 255 0 255
-  let fontBGColor = V4 0 127 255 127
-  let drawText = shaded font fontColor fontBGColor
+  rendererDrawColor renderer $= V4 0 0 139 255
+  let fontColor = V4 255 255 255 255
+  let drawText = blended font fontColor
   drawTree firstTime drawText renderer
   present renderer
   unless quitTriggered (appLoop False renderer font)

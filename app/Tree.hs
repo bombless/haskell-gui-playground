@@ -151,17 +151,18 @@ drawNodes :: (ToDrawingText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> 
 drawNodes _ [] _ _ _ _ _ _ = return ()
 drawNodes firstTime ([]:t) initialX _ y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime t initialX initialX (y + unitHeight) (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
-    -- fillRect renderer $ Just $ Rectangle (P (V2 (fromIntegral $ x + n * unitWidth) (fromIntegral y))) (V2 (3 * fromIntegral unitWidth) (fromIntegral unitHeight))
+    fillRect renderer $ Just $ Rectangle (P (V2 (fromIntegral $ x + n * unitWidth) (fromIntegral y))) (V2 (3 * fromIntegral unitWidth) (fromIntegral unitHeight))
     surface <- drawText $ to_text content
     texture <- createTextureFromSurface renderer surface
     freeSurface surface
     dims <- surfaceDimensions surface
     when firstTime $ putStr "dims:" >> putStr (show dims) >> putChar '\n'
-    let V2 textWidth _ = dims
+    let V2 textWidth textHeight = dims
     let offsetX = div (fromIntegral (3 * unitWidth) - fromIntegral textWidth) 2
+    let offsetY = div (fromIntegral unitHeight - fromIntegral textHeight) 2
     let cX = fromIntegral $ x + n * unitWidth
     let cY = fromIntegral y
-    let rectText = Rectangle (P (V2 (cX + offsetX) cY)) dims
+    let rectText = Rectangle (P (V2 (cX + offsetX) (cY + offsetY))) dims
     copy renderer texture Nothing $ Just rectText
     destroyTexture texture
     drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth * 3) y (unitWidth, unitHeight) drawText renderer
@@ -207,7 +208,6 @@ drawTree firstTime drawText renderer = do
     -- let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     let demo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf
     when firstTime $ printTree demo
-    let insert = Tree.RedBlack.insert
-    let redBlackDemo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf    
+    let redBlackDemo = foldr Tree.RedBlack.insert Leaf ['E', 'H', 'F', 'A', 'D']
     when firstTime $ printTree redBlackDemo
-    drawNodes firstTime (getLines demo) 100 100 100 (16, 16) drawText renderer
+    drawNodes firstTime (getLines demo) 100 100 100 (16, 32) drawText renderer
