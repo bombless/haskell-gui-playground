@@ -6,7 +6,9 @@ import Text.Printf (printf)
 
 import Control.Monad (when)
 
-data Tree a = Leaf | Node a (Tree a) (Tree a)
+import Tree.Definition
+import qualified Tree.RedBlack
+
 data Element a = VirtualLeft | VirtualRight | VirtualNode | VisibleNode a Bool Bool | VisibleLeft | VisibleRight
 
 heightOfDepth :: Int -> Int
@@ -99,9 +101,6 @@ getLines t =
     let lists = listOfNodes [getPaddingTree (asFullTree t depth) depth True True] depth in
     concatMap linesOfNodes lists
 
-class Printable a where
-    printNode :: a -> IO ()
-
 instance Printable Char where
     printNode a = putChar '|' >> putChar a >> putChar '|'
 
@@ -135,9 +134,6 @@ printHelper = foldr ((>>) . printLine) (return ())
 printTree :: (Printable a) => Tree a -> IO ()
 printTree = printHelper . getLines
 
-class Insertable a where
-    insert :: a -> Tree a -> Tree a
-
 instance Insertable Char where
     insert v Leaf = Node v Leaf Leaf
     insert v (Node root left right)
@@ -145,16 +141,13 @@ instance Insertable Char where
         | v < root = Node root (insert v left) right
         | otherwise = Node root left (insert v right)
 
-class ToText a where
-    to_text :: a -> Text
-
-instance ToText Int where
+instance ToDrawingText Int where
     to_text x = pack $ printf "%03d" x
 
-instance ToText Char where
+instance ToDrawingText Char where
     to_text x = pack $ printf "%c" x
 
-drawNodes :: (ToText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> Renderer -> IO ()
+drawNodes :: (ToDrawingText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> Renderer -> IO ()
 drawNodes _ [] _ _ _ _ _ _ = return ()
 drawNodes firstTime ([]:t) initialX _ y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime t initialX initialX (y + unitHeight) (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
@@ -214,4 +207,7 @@ drawTree firstTime drawText renderer = do
     -- let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     let demo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf
     when firstTime $ printTree demo
+    let insert = Tree.RedBlack.insert
+    let redBlackDemo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf    
+    when firstTime $ printTree redBlackDemo
     drawNodes firstTime (getLines demo) 100 100 100 (16, 16) drawText renderer
