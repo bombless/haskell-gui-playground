@@ -2,18 +2,20 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import SDL
-import SDL.Font
 import Tree (drawTree)
 import Data.Word (Word8)
 
-import Control.Monad (unless)
-import System.Directory (listDirectory)
-import System.FilePath ((</>), takeExtension)
-import Control.Monad (filterM)
+import Control.Monad (unless, filterM)
 import Control.Exception (catch)
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
+import Data.Text (pack)
+
+import SDL
+import SDL.Font
+import System.Directory (listDirectory)
+import System.FilePath ((</>), takeExtension)
+import System.FilePath (takeFileName)
 
 
 -- 函数返回Windows字体目录中的所有字体文件路径
@@ -36,11 +38,15 @@ fontSize = 16
 makeFilePair :: FilePath -> IO (Maybe (FilePath, Font))
 makeFilePair path = do
   -- 尝试加载字体，如果失败返回 Nothing
-  maybePair <- catch (Just <$> load path fontSize) handleError
-  case maybePair of
-    Nothing -> printf "Loading font failed: %s" path
-    _ -> return ()
-  return $ fmap (path, ) maybePair
+  maybeFont <- catch (Just <$> load path fontSize) handleError
+  case maybeFont of
+    Nothing -> printf "Loading font failed: %s\n" path >> return Nothing
+    Just font -> do
+      isMono <- isMonospace font
+      printsA <- glyphProvided font 'A'
+      if isMono && printsA
+        then return $ Just (takeFileName path, font)
+        else return Nothing
 
 -- 错误处理函数，返回 Nothing
 handleError :: SDLException -> IO (Maybe Font)
@@ -64,7 +70,7 @@ main = do
   SDL.Font.initialize
   renderer <- createRenderer window (-1) defaultRenderer
   fonts <- cycleFonts
-  appLoop True renderer fonts colors
+  appLoop True window renderer fonts colors
   destroyWindow window
 
 colors :: [(V4 Word8, V4 Word8, V4 Word8)]
@@ -72,10 +78,10 @@ colors = cycle [
   (V4 173 216 230 255, V4 0 0 139 255, V4 255 255 255 255),
   (V4 144 238 144 255, V4 0 128 0 255, V4 240 230 140 255)]
 
-appLoop :: Bool -> Renderer -> [(FilePath, Font)] -> [(V4 Word8, V4 Word8, V4 Word8)] -> IO ()
-appLoop _ _ _ [] = undefined
-appLoop _ _ [] _ = undefined
-appLoop firstTime renderer ((fontPath, font): otherFonts) (colorConfig: otherColors) = do
+appLoop :: Bool -> Window -> Renderer -> [(FilePath, Font)] -> [(V4 Word8, V4 Word8, V4 Word8)] -> IO ()
+appLoop _ _ _ _ [] = undefined
+appLoop _ _ _ [] _ = undefined
+appLoop firstTime window renderer ((fontPath, font): otherFonts) (colorConfig: otherColors) = do
   events <- pollEvents
   let eventIsQuit event =
         case eventPayload event of
@@ -90,7 +96,7 @@ appLoop firstTime renderer ((fontPath, font): otherFonts) (colorConfig: otherCol
           QuitEvent -> True
           KeyboardEvent keyboardEvent ->
             keyboardEventKeyMotion keyboardEvent == Pressed &&
-            keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeKPEnter
+            elem (keysymKeycode (keyboardEventKeysym keyboardEvent)) [KeycodeKPEnter, KeycodeReturn]
           _ -> False
       enterPressed = any eventEnterPressed events
   let eventTabPressed event =
@@ -106,8 +112,33 @@ appLoop firstTime renderer ((fontPath, font): otherFonts) (colorConfig: otherCol
   clear renderer
   rendererDrawColor renderer $= blockColor
   let drawText = blended font fontColor
+  
+  case otherFonts of
+    ((nextFontPath, nextFont):_) -> do
+      let title = printf "current font %s, next font %s" fontPath nextFontPath
+      windowTitle window $= pack title
+      do
+        surface <- blended font blockColor $ pack $ printf "current: %s" fontPath
+        dims <- surfaceDimensions surface
+        texture <- createTextureFromSurface renderer surface
+        freeSurface surface
+        let rectText = Rectangle (P (V2 0 0)) dims
+        copy renderer texture Nothing $ Just rectText
+        destroyTexture texture
+
+      surface <- blended nextFont blockColor $ pack $ printf "next: %s" nextFontPath
+      dims <- surfaceDimensions surface
+      texture <- createTextureFromSurface renderer surface
+      freeSurface surface
+      let rectText = Rectangle (P (V2 0 20)) dims
+      copy renderer texture Nothing $ Just rectText
+      destroyTexture texture
+
+    _ -> return ()
+
   drawTree firstTime drawText renderer
+
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
-  unless quitTriggered (appLoop False renderer fontStream colorStream)
+  unless quitTriggered (appLoop False window renderer fontStream colorStream)
