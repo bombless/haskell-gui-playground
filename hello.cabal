@@ -72,7 +72,9 @@ executable hello
     build-depends:    base,
                       text,
                       sdl2,
-                      sdl2-ttf
+                      sdl2-ttf,
+                      directory,
+                      filepath
 
     -- Directories containing source files.
     hs-source-dirs:   app
