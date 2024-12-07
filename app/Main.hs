@@ -3,7 +3,7 @@ module Main where
 
 import SDL
 import SDL.Font
-import Linear ()
+
 import Control.Monad (unless)
 
 main :: IO ()
@@ -11,7 +11,7 @@ main = do
   initializeAll
   window <- createWindow "My SDL Application" defaultWindow
   SDL.Font.initialize
-  font <- load "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf" 300
+  font <- load "c:\\Windows\\Fonts\\YuGothB.ttc" 300
   renderer <- createRenderer window (-1) defaultRenderer
   appLoop renderer font
   destroyWindow window
