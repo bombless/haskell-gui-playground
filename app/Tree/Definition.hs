@@ -10,7 +10,7 @@ class Printable a where
 
 
 class ToDrawingText a where
-    to_text :: a -> Text
+    to_text :: a -> Either Text Text
 
 
 class Insertable a where

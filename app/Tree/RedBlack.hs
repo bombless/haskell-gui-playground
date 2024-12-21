@@ -37,13 +37,16 @@ insert :: (Ord a) => a -> Tree (Color, a) -> Tree (Color, a)
 insert v t = blackRoot $ insertAux v t
 
 instance ToDrawingText RedBlackInt where
-    to_text (RedBlackInt (_, x)) = pack $ printf "%03d" x
+    to_text (RedBlackInt (Red, x)) = Left (pack $ printf "%03d" x)
+    to_text (RedBlackInt (Black, x)) = Right (pack $ printf "%03d" x)
 
 instance ToDrawingText (Color, Int) where
-    to_text (_, x) = pack $ printf "%03d" x
+    to_text (Red, x) = Left (pack $ printf "%03d" x)
+    to_text (Black, x) = Right (pack $ printf "%03d" x)
 
 instance ToDrawingText (Color, Char) where
-    to_text (_, x) = pack $ printf "%c" x
+    to_text (Red, x) = Left (pack $ printf "%c" x)
+    to_text (Black, x) = Right (pack $ printf "%c" x)
 
 redText :: String
 redText = "\027[31m"

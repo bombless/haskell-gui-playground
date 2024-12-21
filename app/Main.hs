@@ -147,6 +147,7 @@ appLoop ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): ot
   clear renderer
   rendererDrawColor renderer $= blockColor
   let drawText = blended font fontColor
+  let drawRedText = blended font (V4 255 0 0 255)
   
   case otherFonts of
     ((nextFontPath, nextFont):_) -> do
@@ -171,7 +172,7 @@ appLoop ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): ot
 
     _ -> return ()
 
-  drawTree (ctxFirstTime ctx) drawText (ctxNumbers ctx) (ctxOffset ctx) (ctxLayoutOffset ctx) renderer
+  drawTree (ctxFirstTime ctx) drawText drawRedText (ctxNumbers ctx) (ctxOffset ctx) (ctxLayoutOffset ctx) renderer
 
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts

@@ -209,17 +209,19 @@ instance Insertable Int where
         | otherwise = Node root left (insert v right)
 
 instance ToDrawingText Int where
-    to_text x = pack $ printf "%03d" x
+    to_text x = Right (pack $ printf "%03d" x)
 
 instance ToDrawingText Char where
-    to_text x = pack $ printf "%c" x
+    to_text x = Right (pack $ printf "%c" x)
 
-drawNodes :: (ToDrawingText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> Renderer -> IO ()
-drawNodes _ [] _ _ _ _ _ _ = return ()
-drawNodes firstTime ([]:t) initialX _ y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime t initialX initialX (y + unitHeight) (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
+drawNodes :: (ToDrawingText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> (Text -> IO Surface) -> Renderer -> IO ()
+drawNodes _ [] _ _ _ _ _ _ _ = return ()
+drawNodes firstTime ([]:t) initialX _ y (unitWidth, unitHeight) drawText drawRedText renderer = drawNodes firstTime t initialX initialX (y + unitHeight) (unitWidth, unitHeight) drawText drawRedText renderer
+drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText drawRedText renderer = do
     fillRect renderer $ Just $ Rectangle (P (V2 (fromIntegral $ x + n * unitWidth) (fromIntegral y))) (V2 (3 * fromIntegral unitWidth) (fromIntegral unitHeight))
-    surface <- drawText $ to_text content
+    surface <- case to_text content of
+        Left text -> drawRedText text
+        Right text -> drawText text
     texture <- createTextureFromSurface renderer surface
     freeSurface surface
     dims <- surfaceDimensions surface
@@ -232,26 +234,26 @@ drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (
     let rectText = Rectangle (P (V2 (cX + offsetX) (cY + offsetY))) dims
     copy renderer texture Nothing $ Just rectText
     destroyTexture texture
-    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth * 3) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleLeft):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth * 3) y (unitWidth, unitHeight) drawText drawRedText renderer
+drawNodes firstTime (((n, VisibleLeft):t):otherLines) initialX x y (unitWidth, unitHeight) drawText drawRedText renderer = do
     let p1x = fromIntegral $ n * unitWidth + x + unitWidth
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x
     let p2y = fromIntegral $ y + unitHeight
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
-    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText drawRedText renderer
+drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, unitHeight) drawText drawRedText renderer = do
     let p1x = fromIntegral $ n * unitWidth + x
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x + unitWidth
     let p2y = fromIntegral $ y + unitHeight
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
-    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, VirtualNode):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + 3 * unitWidth) y (unitWidth, unitHeight) drawText renderer
-drawNodes firstTime (((n, _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
+    drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText drawRedText renderer
+drawNodes firstTime (((n, VirtualNode):t):otherLines) initialX x y (unitWidth, unitHeight) drawText drawRedText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + 3 * unitWidth) y (unitWidth, unitHeight) drawText drawRedText renderer
+drawNodes firstTime (((n, _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText drawRedText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText drawRedText renderer
 
-drawTree :: Bool -> (Text -> IO Surface) -> [Int] -> (Int, Int) -> Int -> Renderer -> IO ()
-drawTree firstTime drawText numbers (offsetX, offsetY) layoutOffset renderer = do
+drawTree :: Bool -> (Text -> IO Surface) -> (Text -> IO Surface) -> [Int] -> (Int, Int) -> Int -> Renderer -> IO ()
+drawTree firstTime drawText drawRedText numbers (offsetX, offsetY) layoutOffset renderer = do
     when firstTime $ printf "drawTree layoutOffset: %d\n" layoutOffset
     let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     when firstTime $ printTree demo
@@ -260,4 +262,4 @@ drawTree firstTime drawText numbers (offsetX, offsetY) layoutOffset renderer = d
     when firstTime $ printTree redBlackDemo
     let x = 100 + offsetX
     let y = 100 + offsetY
-    drawNodes firstTime (getLines redBlackDemo) x x y (16 + layoutOffset, 32 + 2 * layoutOffset) drawText renderer
+    drawNodes firstTime (getLines redBlackDemo) x x y (16 + layoutOffset, 32 + 2 * layoutOffset) drawText drawRedText renderer
