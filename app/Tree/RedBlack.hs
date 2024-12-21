@@ -9,9 +9,6 @@ import Text.Printf (printf)
 data Color = Red | Black
     deriving Show
 
-newtype RedBlackInt = RedBlackInt (Color, Int)
-newtype RedBlackChar = RedBlackChar (Color, Char)
-
 place :: a -> a -> a -> Tree (Color, a) -> Tree (Color, a) -> Tree (Color, a) -> Tree (Color, a) -> Tree (Color, a)
 place x y z a b c d = Node (Red, y) (Node (Black, x) a b) (Node (Black, z) c d)
 
@@ -35,10 +32,6 @@ insertAux v (Node (c, nv) lt rt)
 
 insert :: (Ord a) => a -> Tree (Color, a) -> Tree (Color, a)
 insert v t = blackRoot $ insertAux v t
-
-instance ToDrawingText RedBlackInt where
-    to_text (RedBlackInt (Red, x)) = Left (pack $ printf "%03d" x)
-    to_text (RedBlackInt (Black, x)) = Right (pack $ printf "%03d" x)
 
 instance ToDrawingText (Color, Int) where
     to_text (Red, x) = Left (pack $ printf "%03d" x)

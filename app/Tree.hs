@@ -14,19 +14,6 @@ import qualified Tree.RedBlack
 data Element a = VirtualLeft | VirtualRight | VirtualNode | VisibleNode a Bool Bool | VisibleLeft | VisibleRight
     deriving Show
 
-heightOfDepth :: Int -> Int
-heightOfDepth n = case n of
-    2 -> 2
-    3 -> 3
-    _ -> if n <= 1 then 0 else 1 + 2 * heightOfDepth (n - 1)
-
-leftmostSpaceOfDepth :: Int -> Int
-leftmostSpaceOfDepth 2 = 2
-leftmostSpaceOfDepth n = if n <= 1 then 0 else leftmostSpaceOfDepth (n-1) + heightOfDepth n + 1
-
-normalSpaceOfDepth :: Int -> Int
-normalSpaceOfDepth n = leftmostSpaceOfDepth (n+1) - 1
-
 data Parameters = Parameters { maxWidth :: Int
                              , leafCount :: Int
                              , siblingSpace :: Int
@@ -36,11 +23,9 @@ data Parameters = Parameters { maxWidth :: Int
                              }
     deriving Show
 
-generateNext_Parameter :: Parameters -> Maybe Parameters
-generateNext_Parameter (Parameters { maxWidth
+generateNextParameter :: Parameters -> Maybe Parameters
+generateNextParameter (Parameters { maxWidth
                                    , leafCount
-                                   , siblingSpace
-                                   , siblingGap
                                    , barCount
                                    , leftmostPadding
                                    })
@@ -77,9 +62,9 @@ generateParameters rootDepth =
                             , barCount = (siblingSpace + 1) `div` 2
                             , leftmostPadding = 0
                             } in
-    let aux params acc = case generateNext_Parameter params of
+    let aux params' acc = case generateNextParameter params' of
             Nothing -> acc
-            Just params' -> aux params' (params':acc) in
+            Just params'' -> aux params'' (params'':acc) in
     aux params [params]
 
 getPaddingTree :: Tree a -> [Parameters] -> Bool -> Bool -> Tree (Int, a)
