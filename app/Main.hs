@@ -161,4 +161,7 @@ appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): o
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
-  unless quitTriggered (appLoop ctx { ctxFirstTime = False, ctxFonts = fontStream, ctxColors = colorStream })
+  numbers <- if tabPressed
+    then generateRandomList 10 (0, 999) else return $ ctxNumbers ctx
+
+  unless quitTriggered (appLoop ctx { ctxNumbers = numbers, ctxFirstTime = False, ctxFonts = fontStream, ctxColors = colorStream })
