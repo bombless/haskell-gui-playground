@@ -141,6 +141,13 @@ instance Insertable Char where
         | v < root = Node root (insert v left) right
         | otherwise = Node root left (insert v right)
 
+instance Insertable Int where
+    insert v Leaf = Node v Leaf Leaf
+    insert v (Node root left right)
+        | v == root = Node root left right
+        | v < root = Node root (insert v left) right
+        | otherwise = Node root left (insert v right)
+
 instance ToDrawingText Int where
     to_text x = pack $ printf "%03d" x
 
@@ -171,16 +178,6 @@ drawNodes firstTime (((n, VisibleLeft):t):otherLines) initialX x y (unitWidth, u
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x
     let p2y = fromIntegral $ y + unitHeight
-    when firstTime
-        $ do
-        putStr "#VisibleLeft# (x, y) = "
-        putStr $ show (x, y)
-        putStr ": "
-        putStr "point "
-        putStr $ show (p1x, p1y)
-        putStr " to "
-        putStr $ show (p2x, p2y)
-        putChar '\n'
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
     drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = do
@@ -188,26 +185,14 @@ drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, 
     let p1y = fromIntegral $ y
     let p2x = fromIntegral $ n * unitWidth + x + unitWidth
     let p2y = fromIntegral $ y + unitHeight
-    when firstTime
-        $ do
-        putStr "#VisibleRight# (x, y) = "
-        putStr $ show (x, y)
-        putStr ": "
-        putStr "point "
-        putStr $ show (p1x, p1y)
-        putStr " to "
-        putStr $ show (p2x, p2y)
-        putChar '\n'
     drawLine renderer (P (V2 p1x p1y)) (P (V2 p2x p2y))
     drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, VirtualNode):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + 3 * unitWidth) y (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
 
-drawTree :: Bool -> (Text -> IO Surface) -> Renderer -> IO ()
-drawTree firstTime drawText renderer = do
-    -- let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
-    let demo = insert 'D' $ insert 'A' $ insert 'F' $ insert 'H' $ insert 'E' Leaf
+drawTree :: Bool -> (Text -> IO Surface) -> [Int] -> Renderer -> IO ()
+drawTree firstTime drawText numbers renderer = do
+    let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     when firstTime $ printTree demo
-    let redBlackDemo = foldr Tree.RedBlack.insert Leaf ['E', 'H', 'F', 'A', 'D']
-    when firstTime $ printTree redBlackDemo
-    drawNodes firstTime (getLines demo) 100 100 100 (16, 32) drawText renderer
+    let redBlackDemo = foldr Tree.RedBlack.insert Leaf numbers
+    drawNodes firstTime (getLines redBlackDemo) 100 100 100 (16, 32) drawText renderer

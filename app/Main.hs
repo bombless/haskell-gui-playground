@@ -5,7 +5,7 @@ module Main where
 import Tree (drawTree)
 import Data.Word (Word8)
 
-import Control.Monad (unless, filterM)
+import Control.Monad (unless, filterM, replicateM)
 import Control.Exception (catch)
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
@@ -16,6 +16,7 @@ import SDL.Font
 import System.Directory (listDirectory)
 import System.FilePath ((</>), takeExtension)
 import System.FilePath (takeFileName)
+import System.Random
 
 
 -- 函数返回Windows字体目录中的所有字体文件路径
@@ -63,6 +64,15 @@ loadFonts = do
 cycleFonts :: IO [(FilePath, Font)]
 cycleFonts = cycle <$> loadFonts
 
+randomRInt :: (Int, Int) -> IO Int
+randomRInt (minVal, maxVal) = do
+  gen <- newStdGen
+  return (fst (randomR (minVal, maxVal) gen))
+
+-- 生成一个包含指定数量随机整数的列表
+generateRandomList :: Int -> (Int, Int) -> IO [Int]
+generateRandomList count range = replicateM count (randomRInt range)
+
 main :: IO ()
 main = do
   initializeAll
@@ -70,7 +80,8 @@ main = do
   SDL.Font.initialize
   renderer <- createRenderer window (-1) defaultRenderer
   fonts <- cycleFonts
-  appLoop True window renderer fonts colors
+  numbers <- generateRandomList 10 (0, 999)
+  appLoop True window renderer numbers fonts colors
   destroyWindow window
 
 colors :: [(V4 Word8, V4 Word8, V4 Word8)]
@@ -78,10 +89,11 @@ colors = cycle [
   (V4 173 216 230 255, V4 0 0 139 255, V4 255 255 255 255),
   (V4 144 238 144 255, V4 0 128 0 255, V4 240 230 140 255)]
 
-appLoop :: Bool -> Window -> Renderer -> [(FilePath, Font)] -> [(V4 Word8, V4 Word8, V4 Word8)] -> IO ()
-appLoop _ _ _ _ [] = undefined
-appLoop _ _ _ [] _ = undefined
-appLoop firstTime window renderer ((fontPath, font): otherFonts) (colorConfig: otherColors) = do
+
+appLoop :: Bool -> Window -> Renderer -> [Int] -> [(FilePath, Font)] -> [(V4 Word8, V4 Word8, V4 Word8)] -> IO ()
+appLoop _ _ _ _ _ [] = undefined
+appLoop _ _ _ _ [] _ = undefined
+appLoop firstTime window renderer numbers ((fontPath, font): otherFonts) (colorConfig: otherColors) = do
   events <- pollEvents
   let eventIsQuit event =
         case eventPayload event of
@@ -136,9 +148,9 @@ appLoop firstTime window renderer ((fontPath, font): otherFonts) (colorConfig: o
 
     _ -> return ()
 
-  drawTree firstTime drawText renderer
+  drawTree firstTime drawText numbers renderer
 
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
-  unless quitTriggered (appLoop False window renderer fontStream colorStream)
+  unless quitTriggered (appLoop False window renderer numbers fontStream colorStream)
