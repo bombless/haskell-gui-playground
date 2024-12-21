@@ -1,4 +1,6 @@
-module Tree (drawTree) where
+{-# LANGUAGE NamedFieldPuns #-}
+
+module Tree (drawTree, generateParameters) where
 
 import SDL
 import Data.Text (pack, Text)
@@ -10,6 +12,7 @@ import Tree.Definition
 import qualified Tree.RedBlack
 
 data Element a = VirtualLeft | VirtualRight | VirtualNode | VisibleNode a Bool Bool | VisibleLeft | VisibleRight
+    deriving Show
 
 heightOfDepth :: Int -> Int
 heightOfDepth n = case n of
@@ -24,22 +27,78 @@ leftmostSpaceOfDepth n = if n <= 1 then 0 else leftmostSpaceOfDepth (n-1) + heig
 normalSpaceOfDepth :: Int -> Int
 normalSpaceOfDepth n = leftmostSpaceOfDepth (n+1) - 1
 
-getPaddingTree :: Tree a -> Int -> Bool -> Bool -> Tree (Int, a)
-getPaddingTree t depth isLeft isLeftmost = case t of
+data Parameters = Parameters { maxWidth :: Int
+                             , leafCount :: Int
+                             , siblingSpace :: Int
+                             , siblingGap :: Int
+                             , barCount :: Int
+                             , leftmostPadding :: Int
+                             }
+    deriving Show
+
+generateNext_Parameter :: Parameters -> Maybe Parameters
+generateNext_Parameter (Parameters { maxWidth
+                                   , leafCount
+                                   , siblingSpace
+                                   , siblingGap
+                                   , barCount
+                                   , leftmostPadding
+                                   })
+    | leafCount > 1 =
+        let spaceReduce = 2 * barCount + 2 in
+        let nextLevelLeafCount = leafCount `div` 2 in
+        let nextLevelMaxWidth = if nextLevelLeafCount > 1 then maxWidth - spaceReduce else 3 in
+        let nextLevelSiblingSpace = if nextLevelLeafCount > 1 then (nextLevelMaxWidth - 3 * nextLevelLeafCount) `div` (nextLevelLeafCount - 1) else 0 in
+        let nextLevelSiblingGap = nextLevelSiblingSpace in
+        let nextLevelBarCount = if nextLevelLeafCount > 1 then (nextLevelSiblingSpace + 1) `div` 2 else 0 in
+        let nextLevelLeftmostPadding = spaceReduce `div` 2 + leftmostPadding in
+        Just (Parameters { maxWidth = nextLevelMaxWidth
+                         , leafCount = nextLevelLeafCount
+                         , siblingSpace = nextLevelSiblingSpace
+                         , siblingGap = nextLevelSiblingGap
+                         , barCount = nextLevelBarCount
+                         , leftmostPadding = nextLevelLeftmostPadding
+                         })
+    | otherwise = Nothing
+
+getLeafCount :: Int -> Int
+getLeafCount 1 = 1
+getLeafCount n = 2 * getLeafCount (n - 1)
+
+generateParameters :: Int -> [Parameters]
+generateParameters rootDepth =
+    let leafCount = getLeafCount rootDepth in
+    let maxWidth = (leafCount `div` 2 - 1) + 9 * (leafCount `div` 2) in
+    let siblingSpace = 3 in
+    let params = Parameters { maxWidth = maxWidth
+                            , leafCount = leafCount
+                            , siblingSpace = siblingSpace
+                            , siblingGap = siblingSpace - 2
+                            , barCount = (siblingSpace + 1) `div` 2
+                            , leftmostPadding = 0
+                            } in
+    let aux params acc = case generateNext_Parameter params of
+            Nothing -> acc
+            Just params' -> aux params' (params':acc) in
+    aux params [params]
+
+getPaddingTree :: Tree a -> [Parameters] -> Bool -> Bool -> Tree (Int, a)
+getPaddingTree t paramsList isLeft isLeftmost = case t of
     Leaf -> Leaf
     Node v l r ->
-        Node (padding, v) (getPaddingTree l (depth - 1) True isLeftmost) (getPaddingTree r (depth-1) False False) where
+        Node (padding, v) (getPaddingTree l (tail paramsList) True isLeftmost) (getPaddingTree r (tail paramsList) False False) where
+            Parameters { leftmostPadding, siblingSpace, siblingGap } = head paramsList
             padding
-                | isLeftmost = leftmostSpaceOfDepth depth
-                | isLeft && depth == 1 = 1
-                | otherwise = normalSpaceOfDepth depth
+                | isLeftmost = leftmostPadding
+                | isLeft = siblingGap
+                | otherwise = siblingSpace
 
 
 isVisualLeaf :: Tree (Int, Maybe a) -> Bool
 isVisualLeaf Leaf = True
 isVisualLeaf (Node (_, Just _) _ _) = False
 isVisualLeaf (Node (_, Nothing) _ _) = True
-
+                                    
 generateFirstLine :: [Tree (Int, Maybe a)] -> [(Int, Element a)]
 generateFirstLine [] = []
 generateFirstLine (Node (p, Just c) l r:t) = (p, VisibleNode c (isVisualLeaf l) (isVisualLeaf r)) : generateFirstLine t
@@ -57,7 +116,7 @@ generateNextLine ((n, c):t) first =
         VisibleRight -> (n + offset, VisibleRight) : next
         VirtualRight -> (n + offset, VirtualRight) : next
         VisibleNode _ leftIsLeaf rightIsLeaf -> (n, if leftIsLeaf then VirtualLeft else VisibleLeft) : (1, if rightIsLeaf then VirtualRight else VisibleRight) : next
-        VirtualNode -> (n - offset, VirtualLeft) : (1, VirtualRight) : next
+        VirtualNode -> (n, VirtualLeft) : (1, VirtualRight) : next
 
 generateLines :: [(Int, Element a)] -> Int -> [[(Int, Element a)]]
 generateLines _ 0 = []
@@ -86,20 +145,27 @@ getDepth :: Tree a -> Int
 getDepth Leaf = 0
 getDepth (Node _ l r) = 1 + getDepth l `max` getDepth r
 
-linesOfNodes :: [Tree (Int, Maybe a)] -> [[(Int, Element a)]]
-linesOfNodes x = case x of
+linesOfNodes :: (Int, [Tree (Int, Maybe a)]) -> [[(Int, Element a)]]
+linesOfNodes (barCount, x) = case x of
     (item:_) ->
         let depth = getDepth item in
         let countDown = heightOfDepth depth in
         let firstLine = generateFirstLine x in
-        firstLine : generateLines firstLine countDown
+        firstLine : generateLines firstLine barCount
     _ -> []
+
+transformBarCount :: [Parameters] -> [Int]
+transformBarCount paramsList = transformBarCountHelper (tail paramsList) where
+    transformBarCountHelper [] = [0]
+    transformBarCountHelper (Parameters { barCount }:xs) = barCount : transformBarCountHelper xs
 
 getLines :: Tree a -> [[(Int, Element a)]]
 getLines t =
     let depth = getDepth t in
-    let lists = listOfNodes [getPaddingTree (asFullTree t depth) depth True True] depth in
-    concatMap linesOfNodes lists
+    let paramsList = generateParameters depth in
+    let lists = listOfNodes [getPaddingTree (asFullTree t depth) paramsList True True] depth in
+    let paramsAndNodesList = zip (transformBarCount paramsList) lists in
+    concatMap linesOfNodes paramsAndNodesList
 
 instance Printable Char where
     printNode a = putChar '|' >> putChar a >> putChar '|'
@@ -196,6 +262,8 @@ drawTree firstTime drawText numbers (offsetX, offsetY) layoutOffset renderer = d
     let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     when firstTime $ printTree demo
     let redBlackDemo = foldr Tree.RedBlack.insert Leaf numbers
+    when firstTime $ print $ getLines redBlackDemo
+    when firstTime $ printTree redBlackDemo
     let x = 100 + offsetX
     let y = 100 + offsetY
     drawNodes firstTime (getLines redBlackDemo) x x y (16 + layoutOffset, 32 + 2 * layoutOffset) drawText renderer

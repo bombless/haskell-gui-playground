@@ -7,6 +7,7 @@ import Data.Text (pack)
 import Text.Printf (printf)
 
 data Color = Red | Black
+    deriving Show
 
 newtype RedBlackInt = RedBlackInt (Color, Int)
 newtype RedBlackChar = RedBlackChar (Color, Char)

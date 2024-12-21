@@ -76,6 +76,9 @@ randomRInt (minVal, maxVal) = do
 generateRandomList :: Int -> (Int, Int) -> IO [Int]
 generateRandomList count range = replicateM count (randomRInt range)
 
+generateNumbers :: IO [Int]
+generateNumbers = generateRandomList 30 (0, 999)
+
 main :: IO ()
 main = do
   initializeAll
@@ -83,7 +86,7 @@ main = do
   SDL.Font.initialize
   renderer <- createRenderer window (-1) defaultRenderer
   fonts <- cycleFonts
-  numbers <- generateRandomList 15 (0, 999)
+  numbers <- generateNumbers
   appLoop AppContext { ctxFirstTime = True
                      , ctxWindow = window
                      , ctxRenderer = renderer
@@ -176,7 +179,7 @@ appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): o
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
   numbers <- if tabPressed
-    then generateRandomList 15 (0, 999) else return $ ctxNumbers ctx
+    then generateNumbers else return $ ctxNumbers ctx
   let (offsetX, offsetY) = ctxOffset ctx
   let newOffsetX = if leftPressed then offsetX - offsetScale else if rightPressed then offsetX + offsetScale else offsetX
   let newOffsetY = if upPressed then offsetY - offsetScale else if downPressed then offsetY + offsetScale else offsetY
@@ -184,7 +187,7 @@ appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): o
   let newLayoutOffset = if layoutOffset > -15 && minusPressed then layoutOffset - 1 else if plusPressed then layoutOffset + 1 else layoutOffset
   when (newLayoutOffset /= layoutOffset) $ printf "newLayoutOffset: %d\n" newLayoutOffset
   let nextContext = ctx { ctxNumbers = numbers
-                        , ctxFirstTime = False
+                        , ctxFirstTime = tabPressed
                         , ctxFonts = fontStream
                         , ctxColors = colorStream
                         , ctxOffset = (newOffsetX, newOffsetY)
