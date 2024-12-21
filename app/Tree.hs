@@ -146,13 +146,7 @@ getDepth Leaf = 0
 getDepth (Node _ l r) = 1 + getDepth l `max` getDepth r
 
 linesOfNodes :: (Int, [Tree (Int, Maybe a)]) -> [[(Int, Element a)]]
-linesOfNodes (barCount, x) = case x of
-    (item:_) ->
-        let depth = getDepth item in
-        let countDown = heightOfDepth depth in
-        let firstLine = generateFirstLine x in
-        firstLine : generateLines firstLine barCount
-    _ -> []
+linesOfNodes (barCount, x) = let firstLine = generateFirstLine x in firstLine : generateLines firstLine barCount
 
 transformBarCount :: [Parameters] -> [Int]
 transformBarCount paramsList = transformBarCountHelper (tail paramsList) where
