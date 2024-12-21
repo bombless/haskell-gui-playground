@@ -68,16 +68,14 @@ cycleFonts :: IO [(FilePath, Font)]
 cycleFonts = cycle <$> loadFonts
 
 randomRInt :: (Int, Int) -> IO Int
-randomRInt (minVal, maxVal) = do
-  gen <- newStdGen
-  return (fst (randomR (minVal, maxVal) gen))
+randomRInt (minVal, maxVal) = fst . randomR (minVal, maxVal) <$> newStdGen
 
 -- 生成一个包含指定数量随机整数的列表
 generateRandomList :: Int -> (Int, Int) -> IO [Int]
 generateRandomList count range = replicateM count (randomRInt range)
 
 generateNumbers :: IO [Int]
-generateNumbers = generateRandomList 30 (0, 999)
+generateNumbers = generateRandomList 10 (0, 999)
 
 main :: IO ()
 main = do
@@ -116,7 +114,7 @@ data AppContext = AppContext { ctxFirstTime :: Bool
 appLoop :: AppContext -> IO ()
 appLoop (AppContext {ctxFonts = []}) = undefined
 appLoop (AppContext {ctxColors = []}) = undefined
-appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): otherFonts, ctxColors = colorConfig: otherColors }) = do
+appLoop ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): otherFonts, ctxColors = colorConfig: otherColors } = do
   events <- pollEvents
   
   let eventKeyPressed code event =
