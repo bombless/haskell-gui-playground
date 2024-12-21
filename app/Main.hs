@@ -81,7 +81,7 @@ main = do
   renderer <- createRenderer window (-1) defaultRenderer
   fonts <- cycleFonts
   numbers <- generateRandomList 10 (0, 999)
-  appLoop True window renderer numbers fonts colors
+  appLoop AppContext { ctxFirstTime = True, ctxWindow = window, ctxRenderer = renderer, ctxNumbers = numbers, ctxFonts = fonts, ctxColors = colors }
   destroyWindow window
 
 colors :: [(V4 Word8, V4 Word8, V4 Word8)]
@@ -89,11 +89,19 @@ colors = cycle [
   (V4 173 216 230 255, V4 0 0 139 255, V4 255 255 255 255),
   (V4 144 238 144 255, V4 0 128 0 255, V4 240 230 140 255)]
 
+data AppContext = AppContext {
+  ctxFirstTime :: Bool,
+  ctxWindow :: Window,
+  ctxRenderer :: Renderer,
+  ctxNumbers :: [Int],
+  ctxFonts :: [(FilePath, Font)],
+  ctxColors :: [(V4 Word8, V4 Word8, V4 Word8)]
+}
 
-appLoop :: Bool -> Window -> Renderer -> [Int] -> [(FilePath, Font)] -> [(V4 Word8, V4 Word8, V4 Word8)] -> IO ()
-appLoop _ _ _ _ _ [] = undefined
-appLoop _ _ _ _ [] _ = undefined
-appLoop firstTime window renderer numbers ((fontPath, font): otherFonts) (colorConfig: otherColors) = do
+appLoop :: AppContext -> IO ()
+appLoop (AppContext {ctxFonts = []}) = undefined
+appLoop (AppContext {ctxColors = []}) = undefined
+appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): otherFonts, ctxColors = colorConfig: otherColors }) = do
   events <- pollEvents
   let eventIsQuit event =
         case eventPayload event of
@@ -128,7 +136,7 @@ appLoop firstTime window renderer numbers ((fontPath, font): otherFonts) (colorC
   case otherFonts of
     ((nextFontPath, nextFont):_) -> do
       let title = printf "current font %s, next font %s" fontPath nextFontPath
-      windowTitle window $= pack title
+      windowTitle (ctxWindow ctx) $= pack title
       do
         surface <- blended font blockColor $ pack $ printf "current: %s" fontPath
         dims <- surfaceDimensions surface
@@ -148,9 +156,9 @@ appLoop firstTime window renderer numbers ((fontPath, font): otherFonts) (colorC
 
     _ -> return ()
 
-  drawTree firstTime drawText numbers renderer
+  drawTree (ctxFirstTime ctx) drawText (ctxNumbers ctx) renderer
 
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
-  unless quitTriggered (appLoop False window renderer numbers fontStream colorStream)
+  unless quitTriggered (appLoop ctx { ctxFirstTime = False, ctxFonts = fontStream, ctxColors = colorStream })
