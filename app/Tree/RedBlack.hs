@@ -16,10 +16,10 @@ place :: a -> a -> a -> Tree (Color, a) -> Tree (Color, a) -> Tree (Color, a) ->
 place x y z a b c d = Node (Red, y) (Node (Black, x) a b) (Node (Black, z) c d)
 
 balance :: ((Color, a), Tree (Color, a), Tree (Color, a)) -> Tree (Color, a)
-balance ((Black, z), (Node (Red, y) (Node (Red, x) a b) c), d) = place x y z a b c d
+balance ((Black, z), Node (Red, y) (Node (Red, x) a b) c, d) = place x y z a b c d
 balance ((Black, z), Node (Red, x) a (Node (Red, y) b c), d) = place x y z a b c d
-balance ((Black, x), a, (Node (Red, y) b (Node (Red, z) c d))) = place x y z a b c d
-balance ((Black, x), a, (Node (Red, z) (Node (Red, y) b c) d)) = place x y z a b c d
+balance ((Black, x), a, Node (Red, y) b (Node (Red, z) c d)) = place x y z a b c d
+balance ((Black, x), a, Node (Red, z) (Node (Red, y) b c) d) = place x y z a b c d
 balance (n, l, r) = Node n l r
 
 blackRoot :: Tree (Color, a) -> Tree (Color, a)

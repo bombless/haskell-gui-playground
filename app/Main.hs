@@ -179,10 +179,10 @@ appLoop ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): ot
   numbers <- if tabPressed
     then generateNumbers else return $ ctxNumbers ctx
   let (offsetX, offsetY) = ctxOffset ctx
-  let newOffsetX = if leftPressed then offsetX - offsetScale else if rightPressed then offsetX + offsetScale else offsetX
-  let newOffsetY = if upPressed then offsetY - offsetScale else if downPressed then offsetY + offsetScale else offsetY
+  let newOffsetX | leftPressed = offsetX - offsetScale | rightPressed = offsetX + offsetScale | otherwise = offsetX
+  let newOffsetY | upPressed = offsetY - offsetScale | downPressed = offsetY + offsetScale | otherwise = offsetY
   let layoutOffset = ctxLayoutOffset ctx
-  let newLayoutOffset = if layoutOffset > -15 && minusPressed then layoutOffset - 1 else if plusPressed then layoutOffset + 1 else layoutOffset
+  let newLayoutOffset | layoutOffset > -15 && minusPressed = layoutOffset - 1 | plusPressed = layoutOffset + 1 | otherwise = layoutOffset
   when (newLayoutOffset /= layoutOffset) $ printf "newLayoutOffset: %d\n" newLayoutOffset
   let nextContext = ctx { ctxNumbers = numbers
                         , ctxFirstTime = tabPressed
