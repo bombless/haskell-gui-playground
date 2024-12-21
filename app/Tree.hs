@@ -3,7 +3,7 @@
 module Tree (drawTree, generateParameters) where
 
 import SDL
-import Data.Text (pack, Text)
+import Data.Text (Text)
 import Text.Printf (printf)
 
 import Control.Monad (when)
@@ -146,12 +146,6 @@ getLines t =
     let paramsAndNodesList = zip (transformBarCount paramsList) lists in
     concatMap linesOfNodes paramsAndNodesList
 
-instance Printable Char where
-    printNode a = putChar '|' >> putChar a >> putChar '|'
-
-instance Printable Int where
-    printNode = printf "%03d"
-
 printLine :: (Printable a) => [(Int, Element a)] -> IO ()
 printLine [] = putChar '\n'
 printLine ((n, VisibleNode c _ _):t) = do
@@ -178,26 +172,6 @@ printHelper = foldr ((>>) . printLine) (return ())
 
 printTree :: (Printable a) => Tree a -> IO ()
 printTree = printHelper . getLines
-
-instance Insertable Char where
-    insert v Leaf = Node v Leaf Leaf
-    insert v (Node root left right)
-        | v == root = Node root left right
-        | v < root = Node root (insert v left) right
-        | otherwise = Node root left (insert v right)
-
-instance Insertable Int where
-    insert v Leaf = Node v Leaf Leaf
-    insert v (Node root left right)
-        | v == root = Node root left right
-        | v < root = Node root (insert v left) right
-        | otherwise = Node root left (insert v right)
-
-instance ToDrawingText Int where
-    to_text x = Right (pack $ printf "%03d" x)
-
-instance ToDrawingText Char where
-    to_text x = Right (pack $ printf "%c" x)
 
 drawNodes :: (ToDrawingText a) => Bool -> [[(Int, Element a)]] -> Int -> Int -> Int -> (Int, Int) -> (Text -> IO Surface) -> (Text -> IO Surface) -> Renderer -> IO ()
 drawNodes _ [] _ _ _ _ _ _ _ = return ()
