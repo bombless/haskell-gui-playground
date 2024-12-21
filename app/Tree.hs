@@ -184,13 +184,13 @@ drawNodes firstTime (((n, VisibleNode content _ _):t):otherLines) initialX x y (
     texture <- createTextureFromSurface renderer surface
     freeSurface surface
     dims <- surfaceDimensions surface
-    when firstTime $ putStr "dims:" >> putStr (show dims) >> putChar '\n'
     let V2 textWidth textHeight = dims
     let offsetX = div (fromIntegral (3 * unitWidth) - fromIntegral textWidth) 2
     let offsetY = div (fromIntegral unitHeight - fromIntegral textHeight) 2
     let cX = fromIntegral $ x + n * unitWidth
     let cY = fromIntegral y
     let rectText = Rectangle (P (V2 (cX + offsetX) (cY + offsetY))) dims
+    when firstTime $ print rectText
     copy renderer texture Nothing $ Just rectText
     destroyTexture texture
     drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth * 3) y (unitWidth, unitHeight) drawText drawRedText renderer
@@ -219,6 +219,6 @@ drawTree firstTime drawText drawRedText numbers (offsetX, offsetY) layoutOffset 
     let redBlackDemo = foldr Tree.RedBlack.insert Leaf numbers
     when firstTime $ print $ getLines redBlackDemo
     when firstTime $ printTree redBlackDemo
-    let x = 100 + offsetX
-    let y = 100 + offsetY
-    drawNodes firstTime (getLines redBlackDemo) x x y (16 + layoutOffset, 32 + 2 * layoutOffset) drawText drawRedText renderer
+    let x = 10 + offsetX
+    let y = 50 + offsetY
+    drawNodes firstTime (getLines redBlackDemo) x x y (12 + layoutOffset, 24 + 2 * layoutOffset) drawText drawRedText renderer
