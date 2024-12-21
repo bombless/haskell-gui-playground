@@ -5,7 +5,7 @@ module Main where
 import Tree (drawTree)
 import Data.Word (Word8)
 
-import Control.Monad (unless, filterM, replicateM)
+import Control.Monad (unless, when, filterM, replicateM)
 import Control.Exception (catch)
 import Data.Maybe (catMaybes)
 import Text.Printf (printf)
@@ -35,6 +35,9 @@ isFontFile path = do
 
 fontSize :: Int
 fontSize = 16
+
+offsetScale :: Int
+offsetScale = 3
 
 makeFilePair :: FilePath -> IO (Maybe (FilePath, Font))
 makeFilePair path = do
@@ -80,14 +83,16 @@ main = do
   SDL.Font.initialize
   renderer <- createRenderer window (-1) defaultRenderer
   fonts <- cycleFonts
-  numbers <- generateRandomList 10 (0, 999)
+  numbers <- generateRandomList 15 (0, 999)
   appLoop AppContext { ctxFirstTime = True
                      , ctxWindow = window
                      , ctxRenderer = renderer
                      , ctxNumbers = numbers
                      , ctxFonts = fonts
                      , ctxColors = colors
-                     , ctxOffset = (0, 0) }
+                     , ctxOffset = (0, 0)
+                     , ctxLayoutOffset = 0
+                     }
   destroyWindow window
 
 colors :: [(V4 Word8, V4 Word8, V4 Word8)]
@@ -101,7 +106,9 @@ data AppContext = AppContext { ctxFirstTime :: Bool
                              , ctxNumbers :: [Int]
                              , ctxFonts :: [(FilePath, Font)]
                              , ctxColors :: [(V4 Word8, V4 Word8, V4 Word8)]
-                             , ctxOffset :: (Int, Int) }
+                             , ctxOffset :: (Int, Int)
+                             , ctxLayoutOffset :: Int
+                             }
 
 appLoop :: AppContext -> IO ()
 appLoop (AppContext {ctxFonts = []}) = undefined
@@ -117,20 +124,23 @@ appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): o
             keysymKeycode (keyboardEventKeysym keyboardEvent) == code
           _ -> False
       keyPressed code = any (eventKeyPressed code) events
-      quitTriggered = keyPressed KeycodeQ
+  let eventAnyKeyPressed codes event =
+        case eventPayload event of
+          QuitEvent -> True
+          KeyboardEvent keyboardEvent ->
+            keyboardEventKeyMotion keyboardEvent == Pressed &&
+            elem (keysymKeycode (keyboardEventKeysym keyboardEvent)) codes
+          _ -> False
+      anyKeyPressed code = any (eventAnyKeyPressed code) events
+  let quitTriggered = keyPressed KeycodeQ
       tabPressed = keyPressed KeycodeTab
       leftPressed = keyPressed KeycodeLeft
       rightPressed = keyPressed KeycodeRight
       upPressed = keyPressed KeycodeUp
       downPressed = keyPressed KeycodeDown
-  let eventEnterPressed event =
-        case eventPayload event of
-          QuitEvent -> True
-          KeyboardEvent keyboardEvent ->
-            keyboardEventKeyMotion keyboardEvent == Pressed &&
-            elem (keysymKeycode (keyboardEventKeysym keyboardEvent)) [KeycodeKPEnter, KeycodeReturn]
-          _ -> False
-      enterPressed = any eventEnterPressed events
+      minusPressed = keyPressed KeycodeKPMinus
+      plusPressed = keyPressed KeycodeKPPlus
+      enterPressed = anyKeyPressed [KeycodeKPEnter, KeycodeReturn]
   let (backgroundColor, blockColor, fontColor) = colorConfig
   rendererDrawColor renderer $= backgroundColor
   clear renderer
@@ -160,15 +170,24 @@ appLoop (ctx@AppContext { ctxRenderer = renderer, ctxFonts = (fontPath, font): o
 
     _ -> return ()
 
-  drawTree (ctxFirstTime ctx) drawText (ctxNumbers ctx) (ctxOffset ctx) renderer
+  drawTree (ctxFirstTime ctx) drawText (ctxNumbers ctx) (ctxOffset ctx) (ctxLayoutOffset ctx) renderer
 
   present renderer
   let fontStream = if tabPressed then otherFonts else (fontPath, font): otherFonts
   let colorStream = if enterPressed then otherColors else colorConfig: otherColors
   numbers <- if tabPressed
-    then generateRandomList 10 (0, 999) else return $ ctxNumbers ctx
+    then generateRandomList 15 (0, 999) else return $ ctxNumbers ctx
   let (offsetX, offsetY) = ctxOffset ctx
-  let newOffsetX = if leftPressed then offsetX - 1 else if rightPressed then offsetX + 1 else offsetX
-  let newOffsetY = if upPressed then offsetY - 1 else if downPressed then offsetY + 1 else offsetY
-  let nextContext = ctx { ctxNumbers = numbers, ctxFirstTime = False, ctxFonts = fontStream, ctxColors = colorStream, ctxOffset = (newOffsetX, newOffsetY) }
+  let newOffsetX = if leftPressed then offsetX - offsetScale else if rightPressed then offsetX + offsetScale else offsetX
+  let newOffsetY = if upPressed then offsetY - offsetScale else if downPressed then offsetY + offsetScale else offsetY
+  let layoutOffset = ctxLayoutOffset ctx
+  let newLayoutOffset = if layoutOffset > -15 && minusPressed then layoutOffset - 1 else if plusPressed then layoutOffset + 1 else layoutOffset
+  when (newLayoutOffset /= layoutOffset) $ printf "newLayoutOffset: %d\n" newLayoutOffset
+  let nextContext = ctx { ctxNumbers = numbers
+                        , ctxFirstTime = False
+                        , ctxFonts = fontStream
+                        , ctxColors = colorStream
+                        , ctxOffset = (newOffsetX, newOffsetY)
+                        , ctxLayoutOffset = newLayoutOffset
+                        }
   unless quitTriggered (appLoop nextContext)

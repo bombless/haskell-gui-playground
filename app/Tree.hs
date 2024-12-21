@@ -190,11 +190,12 @@ drawNodes firstTime (((n, VisibleRight):t):otherLines) initialX x y (unitWidth, 
 drawNodes firstTime (((n, VirtualNode):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + 3 * unitWidth) y (unitWidth, unitHeight) drawText renderer
 drawNodes firstTime (((n, _):t):otherLines) initialX x y (unitWidth, unitHeight) drawText renderer = drawNodes firstTime (t:otherLines) initialX (x + n * unitWidth + unitWidth) y (unitWidth, unitHeight) drawText renderer
 
-drawTree :: Bool -> (Text -> IO Surface) -> [Int] -> (Int, Int) -> Renderer -> IO ()
-drawTree firstTime drawText numbers (offsetX, offsetY) renderer = do
+drawTree :: Bool -> (Text -> IO Surface) -> [Int] -> (Int, Int) -> Int -> Renderer -> IO ()
+drawTree firstTime drawText numbers (offsetX, offsetY) layoutOffset renderer = do
+    when firstTime $ printf "drawTree layoutOffset: %d\n" layoutOffset
     let demo = Node 'D' (Node 'B' (Node 'A' Leaf Leaf) (Node 'C' Leaf Leaf)) (Node 'E' Leaf Leaf)
     when firstTime $ printTree demo
     let redBlackDemo = foldr Tree.RedBlack.insert Leaf numbers
     let x = 100 + offsetX
     let y = 100 + offsetY
-    drawNodes firstTime (getLines redBlackDemo) x x y (16, 32) drawText renderer
+    drawNodes firstTime (getLines redBlackDemo) x x y (16 + layoutOffset, 32 + 2 * layoutOffset) drawText renderer
